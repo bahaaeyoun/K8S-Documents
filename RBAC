@@ -1,0 +1,101 @@
+RBAC K8s:
+-------------------------------------------------------------------------------------------------------------------
+Checking your current authentication setup:
+* Windows: C:\Users<user>.kube\config
+• Linux/Mac: /home/<user>/.kube/config
+
+- When new users join your team, you can give them access to Kubernetes 
+-----------------------------------------------------------------------
+Steps to create CSR and Private Key:
+✅ Step 1: Create a Private Key and CSR
+-(Apply On client VM)
+openssl genrsa -out john.key 2048
+openssl req -new -key john.key -out bahaa.csr -subj "/CN=john"
+
+✅ Step 2: Use Kubernetes CA to Sign the Certificate
+Note: Copy john.csr  CSR to control plan node before run the below command
+🚫 Important Note:
+
+    Do not copy ca.key off the control plane — it's highly sensitive.
+
+    You only need to move the CSR (john.csr) to control plane, not the key.
+
+
+# On control plane node run the below:
+openssl x509 -req -in john.csr -CA /etc/kubernetes/pki/ca.crt \
+-CAkey /etc/kubernetes/pki/ca.key -CAcreateserial \
+  -out john.crt -days 365
+
+# On user VM  run the below command :
+✅ Step 3: Configure kubeconfig for the New User
+kubectl config set-credentials john \
+  --client-certificate=john.crt \
+  --client-key=john.key
+
+kubectl config set-context john-context \
+  --cluster=kubernetes \
+  --user=john
+
+kubectl config use-context john-context
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Users and Permissions:
+----------------------
+Two concepts are vital to understanding Kubernetes RBAC.
+• Roles
+• RoleBindings
+Roles define a set of permissions, and RoleBindings grant those permissions to users.
+
+🔐 Kubernetes RBAC Components
+-----------------------------
+RBAC Object	|   Scope	   |                 Purpose
+-----------------------------------------------------------------------
+Role	     -->          Namespace	             Grants permissions within a specific namespace.
+ClusterRole	  -->       Cluster-wide	         Grants permissions across the cluster (all namespaces or cluster-level resources).
+RoleBinding 	 -->      Namespace	Binds        Role (or ClusterRole) to a user/group/service account in a namespace.
+ClusterRoleBinding -->  Cluster-wide	Binds    ClusterRole to a user/group/service account across the cluster.
+
+🔹 2. Grant Permissions (Using RBAC)
+Create a Role (if not already created):
+# pod-reader-role.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: pod-reader
+  namespace: dev
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list"]
+
+kubectl apply -f pod-reader-role.yaml
+
+# bind-john.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: john-read-pods
+  namespace: dev
+subjects:
+- kind: User
+  name: john
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: pod-reader
+  apiGroup: rbac.authorization.k8s.io
+
+kubectl apply -f bind-john.yaml
+
+📁 Result:
+
+Your kubeconfig (typically in ~/.kube/config) will now contain an entry like this:
+
+👑 Best Practice
+
+Run RBAC creation (Roles and RoleBindings) from an admin's workstation or jump box, not necessarily the control plane node.
+
+
+
+
