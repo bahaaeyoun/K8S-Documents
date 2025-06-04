@@ -1,0 +1,40 @@
+ConfigMap:
+-----------
+A ConfigMap in Kubernetes is an API object used to store non-confidential configuration data in key-value pairs. 
+It allows you to decouple configuration artifacts from image content to keep containerized applications portable.
+
+
+Common Use Cases
+
+    Inject environment variables into a Pod
+
+    Mount a configuration file into a container
+
+    Pass command-line arguments to applications
+
+Example:
+
+ConfigMaps:
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-config
+data:
+  APP_ENV: "production"
+  LOG_LEVEL: "debug"
+
+
+Pod:
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: demo
+spec:
+  containers:
+  - name: app
+    image: my-app:latest
+    envFrom:
+    - configMapRef:
+        name: my-config
